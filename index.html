@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kart Party – Local Network Architecture PoC</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #0d1117;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      padding: 32px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .badge-poc {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #ff4d4d, #f9cb28);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 17px;
+      color: #8b949e;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    .grid-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 36px;
+    }
+
+    @media (max-width: 700px) {
+      .grid-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    .card h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card p {
+      color: #8b949e;
+      font-size: 14px;
+      margin-bottom: 20px;
+      flex: 1;
+    }
+
+    .btn-launch {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 10px;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    .btn-launch:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+
+    .btn-tv {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    }
+
+    .btn-controller {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+
+    /* QR Code Hero Section */
+    .qr-hero-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 28px;
+      display: flex;
+      gap: 32px;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+
+    @media (max-width: 700px) {
+      .qr-hero-card {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+
+    .qr-box {
+      background: #ffffff;
+      padding: 12px;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+
+    .qr-box img {
+      width: 180px;
+      height: 180px;
+      display: block;
+    }
+
+    .qr-info h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .qr-info p {
+      color: #8b949e;
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+
+    .url-chip {
+      display: inline-block;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: monospace;
+      color: #58a6ff;
+      font-size: 14px;
+    }
+
+    /* Architecture Details Section */
+    .info-section {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .info-section h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #f0f6fc;
+      border-bottom: 1px solid #30363d;
+      padding-bottom: 8px;
+    }
+
+    .info-section ul {
+      padding-left: 20px;
+      color: #c9d1d9;
+      font-size: 14px;
+    }
+
+    .info-section li {
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge-poc">Technical Architecture PoC</span>
+      <h1>🏎️ Kart Party Architecture Hub</h1>
+      <p class="subtitle">
+        Authoritative Node.js + Rapier 3D physics server broadcasting to Babylon.js TV display with real-time smartphone virtual controller over local Wi-Fi.
+      </p>
+    </header>
+
+    <!-- QR Hero for Quick Mobile Pairing -->
+    <div class="qr-hero-card">
+      <div class="qr-box">
+        <img id="hubQr" alt="Controller QR Code" src="" />
+      </div>
+      <div class="qr-info">
+        <h3>📱 Quick Smartphone Pairing</h3>
+        <p>Scan this QR code with your phone camera or QR scanner. Both phone and desktop must be on the same Wi-Fi network.</p>
+        <div>
+          <span id="controllerUrlText" class="url-chip">Loading controller URL...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Launch Grid -->
+    <div class="grid-cards">
+      <!-- TV Card -->
+      <div class="card">
+        <div>
+          <h2>📺 TV Game Display</h2>
+          <p>
+            Renders the 3D track, kart, speed gauge, and diagnostics HUD in Babylon.js. Runs an independent render loop with interpolation between 60Hz server updates.
+          </p>
+        </div>
+        <a id="linkTv" href="/tv" class="btn-launch btn-tv" target="_blank">Launch TV View</a>
+      </div>
+
+      <!-- Phone Controller Card -->
+      <div class="card">
+        <div>
+          <h2>📱 Mobile Controller</h2>
+          <p>
+            Touch-first virtual gamepad with Left, Right, Accelerate and Brake buttons. Supports optional device tilt motion steering and real-time input transmission rate diagnostics.
+          </p>
+        </div>
+        <a id="linkController" href="/controller" class="btn-launch btn-controller" target="_blank">Launch Controller View</a>
+      </div>
+    </div>
+
+    <!-- Architecture & Verification Notes -->
+    <div class="info-section">
+      <h3>🔍 Local Network Configuration</h3>
+      <ul>
+        <li><strong>Server LAN IPv4:</strong> <span id="serverIp">Detecting...</span></li>
+        <li><strong>Colyseus WebSocket:</strong> Port 3000 (binds to <code>0.0.0.0</code>)</li>
+        <li><strong>Physics Simulation:</strong> Rapier WASM 3D at 60 Hz fixed timestep</li>
+        <li><strong>Authoritative Model:</strong> Desktop server processes all inputs; TV client only renders received state.</li>
+        <li><strong>Diagnostics:</strong> Real-time measured RTT, server CPU time, tick rates, and actual rendering FPS are exposed on all screens.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    async function loadInfo() {
+      try {
+        const res = await fetch('/api/info');
+        if (res.ok) {
+          const info = await res.json();
+          document.getElementById('hubQr').src = info.qrDataUrl;
+          document.getElementById('controllerUrlText').textContent = info.controllerUrl;
+          document.getElementById('serverIp').textContent = `${info.lanIp}:${info.port}`;
+          document.getElementById('linkTv').href = info.tvUrl;
+          document.getElementById('linkController').href = info.controllerUrl;
+        }
+      } catch (err) {
+        console.error('Failed to load server info:', err);
+      }
+    }
+    loadInfo();
+  </script>
+</body>
+</html>
