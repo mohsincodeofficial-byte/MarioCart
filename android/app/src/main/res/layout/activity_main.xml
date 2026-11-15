@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#07090e"
+    android:keepScreenOn="true">
+
+    <!-- Top Status Strip -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚡ PES KART BLUETOOTH"
+            android:textColor="#00e5ff"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:letterSpacing="0.1" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pairing with Windows Bluetooth..."
+            android:textColor="#4ade80"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:background="#1a2030"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp" />
+    </LinearLayout>
+
+    <!-- Main Split Screen -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/topBar"
+        android:orientation="horizontal">
+
+        <!-- Left Half: PES Mobile Dynamic Floating Virtual Stick -->
+        <com.kartparty.controller.PesTouchPadView
+            android:id="@+id/pesStickView"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <!-- Right Half: Big PES Mobile Action Buttons -->
+        <RelativeLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:padding="24dp">
+
+            <!-- Side Action: Drift -->
+            <Button
+                android:id="@+id/btnDrift"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_toStartOf="@id/btnCluster"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="20dp"
+                android:backgroundTint="#2a3242"
+                android:text="DRIFT"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <!-- Big Primary Command Cluster -->
+            <LinearLayout
+                android:id="@+id/btnCluster"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:orientation="vertical">
+
+                <!-- DASH / SPRINT (GAS) -->
+                <Button
+                    android:id="@+id/btnGas"
+                    android:layout_width="110dp"
+                    android:layout_height="110dp"
+                    android:layout_marginBottom="16dp"
+                    android:backgroundTint="#00e5ff"
+                    android:text="▲ DASH\nGAS"
+                    android:textColor="#07090e"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <!-- MATCH-UP (BRAKE / REVERSE) -->
+                <Button
+                    android:id="@+id/btnBrake"
+                    android:layout_width="110dp"
+                    android:layout_height="110dp"
+                    android:backgroundTint="#ff0055"
+                    android:text="■ BRAKE\nREV"
+                    android:textColor="#ffffff"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Reset Button Top-Right -->
+            <Button
+                android:id="@+id/btnReset"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_alignParentTop="true"
+                android:layout_alignParentEnd="true"
+                android:backgroundTint="#161b26"
+                android:text="↺"
+                android:textColor="#94a3b8" />
+        </RelativeLayout>
+    </LinearLayout>
+
+</RelativeLayout>

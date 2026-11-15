@@ -12,6 +12,8 @@ export class InputManager {
   private isDirty = false;
   private lastSentInput: ControllerInput | null = null;
   private sendIntervalTimer: any = null;
+  private dataChannel: RTCDataChannel | null = null;
+  private isP2pActive = false;
 
   // Rate measurement
   private packetsSentInSecond = 0;
@@ -20,6 +22,15 @@ export class InputManager {
   private lastAckSequence = 0;
 
   constructor(private sendCallback: SendInputCallback) {}
+
+  public setDataChannel(channel: RTCDataChannel | null): void {
+    this.dataChannel = channel;
+    this.isP2pActive = !!(channel && channel.readyState === 'open');
+  }
+
+  public getIsP2pActive(): boolean {
+    return this.isP2pActive;
+  }
 
   public start(): void {
     const intervalMs = Math.round(1000 / CONSTANTS.CONTROLLER_SEND_RATE_HZ);
@@ -87,13 +98,13 @@ export class InputManager {
   }
 
   private tick(): void {
-    // Send packet if dirty or if active input is being held (continuous driving)
     const hasActiveInput =
       this.currentThrottle > 0 ||
       this.currentBrake ||
       Math.abs(this.currentSteering) > 0.02;
 
-    if (this.isDirty || hasActiveInput) {
+    // Send continuously when driving, or on change, or heartbeat every 4 ticks (~100ms)
+    if (this.isDirty || hasActiveInput || (this.sequence % 4 === 0)) {
       this.sequence++;
       const payload: ControllerInput = {
         type: 'input',
@@ -106,7 +117,18 @@ export class InputManager {
 
       const validated = validateControllerInput(payload);
       if (validated) {
-        this.sendCallback(validated);
+        if (this.dataChannel && this.dataChannel.readyState === 'open') {
+          try {
+            this.dataChannel.send(JSON.stringify(validated));
+            this.isP2pActive = true;
+          } catch {
+            this.isP2pActive = false;
+            this.sendCallback(validated);
+          }
+        } else {
+          this.isP2pActive = false;
+          this.sendCallback(validated);
+        }
         this.packetsSentInSecond++;
         this.lastSentInput = validated;
       }

@@ -4,9 +4,12 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "dev:server": "tsx src/server/server.ts",
+    "dev:client": "vite",
     "dev": "tsx src/server/server.ts",
     "build": "vite build",
     "start": "tsx src/server/server.ts",
+    "tunnel": "ssh -R 80:127.0.0.1:3000 -o StrictHostKeyChecking=no nokey@localhost.run",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -23,7 +26,9 @@
     "colyseus.js": "^0.16.22",
     "cors": "^2.8.6",
     "express": "^5.3.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

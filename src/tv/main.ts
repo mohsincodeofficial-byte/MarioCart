@@ -1,10 +1,10 @@
 import { Engine } from '@babylonjs/core';
-import * as Colyseus from '@colyseus/sdk';
-import { CONSTANTS } from '../shared/protocol';
+import { io, Socket } from 'socket.io-client';
 import { GameStateMessage, ServerDiagnostics } from '../shared/game-types';
 import { KartScene } from './scene';
 import { TvRenderer, detectRenderBackend } from './renderer';
 import { TvDiagnostics } from './diagnostics';
+import { WebRtcTvHost } from './webrtc-tv';
 
 async function bootstrap() {
   const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement;
@@ -24,7 +24,7 @@ async function bootstrap() {
     antialias: true,
   });
 
-  const { backend, isWebGPUAvailable } = detectRenderBackend(engine);
+  const { backend } = detectRenderBackend(engine);
   console.log(`[TV] Engine initialized with backend: ${backend}`);
 
   // Create Scene & Renderer
@@ -43,6 +43,8 @@ async function bootstrap() {
     });
   }
 
+  const roomCodeVal = document.getElementById('roomCodeVal') as HTMLElement;
+
   // Fetch LAN controller QR code & info from server API
   try {
     const infoRes = await fetch('/api/info');
@@ -54,88 +56,152 @@ async function bootstrap() {
       if (info.controllerUrl && qrUrlText) {
         qrUrlText.textContent = info.controllerUrl;
       }
+      if (info.roomCode && roomCodeVal) {
+        roomCodeVal.textContent = info.roomCode;
+      }
     }
   } catch (err) {
     console.warn('[TV] Could not fetch server info endpoint:', err);
   }
 
-  // Connect to Colyseus Server
-  const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const serverEndpoint = `${wsProtocol}//${location.host}`;
-  const client = new Colyseus.Client(serverEndpoint);
+  // Connect to Server via Socket.IO
+  const targetUrl = import.meta.env.DEV && location.port === '5173'
+    ? `${location.protocol}//${location.hostname}:3000`
+    : undefined;
 
-  let room: Colyseus.Room | null = null;
+  const socket: Socket = io(targetUrl as any, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+  });
 
-  async function connectToRoom() {
-    diagnostics.setConnectionStatus('Connecting...');
-    if (connPill) connPill.textContent = '🟡 Connecting to Server...';
-
-    try {
-      room = await client.joinOrCreate(CONSTANTS.ROOM_NAME, { role: 'tv' });
-      diagnostics.setConnectionStatus('Connected');
-      if (connPill) connPill.textContent = '🟢 Server Connected';
-      console.log(`[TV] Joined room "${room.id}" with session ${room.sessionId}`);
-
-      // Handle authoritative state updates
-      room.onMessage('state', (state: GameStateMessage) => {
-        renderer.onServerStateUpdate(state.kart);
-        diagnostics.recordStateUpdate(state.tick);
-      });
-
-      // Handle RTT ping responses
-      room.onMessage('pong', (data: { clientTime: number }) => {
-        const rtt = performance.now() - data.clientTime;
-        diagnostics.recordRtt(rtt);
-      });
-
-      // Handle server health & tick rate diagnostics
-      room.onMessage('server_diagnostics', (diag: ServerDiagnostics) => {
-        diagnostics.setServerStats(diag.simulationTickRate, diag.serverProcessingTimeMs);
-        diagnostics.setControllerStatus(diag.controllerConnected);
-
-        if (qrModal) {
-          qrModal.style.display = diag.controllerConnected ? 'none' : 'flex';
+  // WebRTC TV Host (direct P2P raw UDP reception)
+  const webrtcTv = new WebRtcTvHost(
+    socket,
+    (directInput) => {
+      // Forward direct WebRTC UDP input immediately to server simulation
+      socket.emit('input', directInput);
+    },
+    (status) => {
+      if (connPill) {
+        connPill.textContent = status.label;
+        if (status.p2p) {
+          connPill.style.color = '#38bdf8';
+          connPill.style.borderColor = '#38bdf8';
+          connPill.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.6)';
+        } else {
+          connPill.style.color = '#4ade80';
+          connPill.style.borderColor = '';
+          connPill.style.boxShadow = '';
         }
-      });
-
-      // Handle client connection updates
-      room.onMessage('status_update', (status: { controllerConnected: boolean }) => {
-        diagnostics.setControllerStatus(status.controllerConnected);
-        if (qrModal) {
-          qrModal.style.display = status.controllerConnected ? 'none' : 'flex';
-        }
-      });
-
-      // Room disconnect handler
-      room.onLeave((code) => {
-        console.warn(`[TV] Left room (code ${code}), attempting reconnect in 2s...`);
-        diagnostics.setConnectionStatus('Reconnecting...');
-        if (connPill) connPill.textContent = '🔴 Disconnected - Reconnecting...';
-        setTimeout(connectToRoom, 2000);
-      });
-
-      room.onError((errCode, errMsg) => {
-        console.error(`[TV] Room error [${errCode}]:`, errMsg);
-      });
-    } catch (err) {
-      console.error('[TV] Room connection failed, retrying in 2s:', err);
-      diagnostics.setConnectionStatus('Reconnecting...');
-      if (connPill) connPill.textContent = '🔴 Connection Failed - Retrying...';
-      setTimeout(connectToRoom, 2000);
+      }
     }
-  }
+  );
 
-  // Periodic Ping for Measured RTT
+  socket.on('connect', () => {
+    diagnostics.setConnectionStatus('Connected');
+    if (connPill) connPill.textContent = '🟢 Server Connected';
+    console.log(`[TV] Connected to server (id: ${socket.id})`);
+    socket.emit('join', { role: 'tv' });
+  });
+
+  // Handle authoritative state updates (60 Hz)
+  socket.on('state', (state: GameStateMessage) => {
+    renderer.onServerStateUpdate(state.kart);
+    diagnostics.recordStateUpdate(state.tick);
+  });
+
+  // Handle RTT ping responses
+  socket.on('pong', (data: { clientTime: number }) => {
+    const rtt = performance.now() - data.clientTime;
+    diagnostics.recordRtt(rtt);
+  });
+
+  // Handle server health & tick rate diagnostics
+  socket.on('server_diagnostics', (diag: ServerDiagnostics) => {
+    diagnostics.setServerStats(diag.simulationTickRate, diag.serverProcessingTimeMs);
+    diagnostics.setControllerStatus(diag.controllerConnected);
+
+    if (qrModal) {
+      qrModal.style.display = diag.controllerConnected ? 'none' : 'flex';
+    }
+  });
+
+  // Handle client connection updates
+  socket.on('status_update', (status: { controllerConnected: boolean }) => {
+    diagnostics.setControllerStatus(status.controllerConnected);
+    if (qrModal) {
+      qrModal.style.display = status.controllerConnected ? 'none' : 'flex';
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.warn(`[TV] Disconnected (${reason}), reconnecting...`);
+    diagnostics.setConnectionStatus('Reconnecting...');
+    if (connPill) connPill.textContent = '🔴 Disconnected - Reconnecting...';
+  });
+
+  socket.on('connect_error', (err) => {
+    console.warn('[TV] Connection error:', err.message);
+    diagnostics.setConnectionStatus('Reconnecting...');
+    if (connPill) connPill.textContent = '🔴 Connection Error - Retrying...';
+  });
+
+  // Periodic Ping for Measured RTT (2 Hz)
   setInterval(() => {
-    if (room && room.connection && room.connection.isOpen) {
-      room.send('ping', { clientTime: performance.now() });
+    if (socket.connected) {
+      socket.emit('ping', { clientTime: performance.now() });
     }
   }, 500);
 
   // Independent Render Loop running at device refresh rate (60/120Hz)
+  let hardwareSeq = 0;
+  let lastGamepadInputTime = 0;
+
   engine.runRenderLoop(() => {
     const dtSeconds = engine.getDeltaTime() / 1000;
     renderer.render(dtSeconds);
+
+    // Direct Hardware Bluetooth Gamepad Support (0ms network latency)
+    if (typeof navigator !== 'undefined' && navigator.getGamepads) {
+      const gamepads = navigator.getGamepads();
+      for (let i = 0; i < gamepads.length; i++) {
+        const gp = gamepads[i];
+        if (gp && gp.connected) {
+          // Left Stick X (-1.0 to 1.0) or D-Pad
+          let steer = gp.axes[0] || 0;
+          if (gp.axes[4] && Math.abs(gp.axes[4]) > Math.abs(steer)) steer = gp.axes[4];
+
+          // Triggers / Buttons (Gas: A/Cross or R2; Brake: B/Circle/Square or L2)
+          const gas = (gp.buttons[7]?.pressed || gp.buttons[0]?.pressed || gp.buttons[2]?.pressed || false);
+          const brake = (gp.buttons[6]?.pressed || gp.buttons[1]?.pressed || false);
+
+          const now = performance.now();
+          if (now - lastGamepadInputTime > 20) { // 50 Hz poll rate
+            lastGamepadInputTime = now;
+            hardwareSeq++;
+            socket.emit('input', {
+              type: 'input',
+              sequence: hardwareSeq,
+              steering: Number(steer.toFixed(2)),
+              throttle: gas ? 1.0 : 0.0,
+              brake: brake,
+              clientTime: now,
+            });
+
+            if (connPill) {
+              connPill.textContent = `🎮 Bluetooth Gamepad (${gp.id.split('(')[0].trim() || 'Connected'})`;
+              connPill.style.color = '#38bdf8';
+            }
+            if (qrModal && qrModal.style.display !== 'none') {
+              qrModal.style.display = 'none';
+            }
+          }
+          break;
+        }
+      }
+    }
 
     // Update speedometer (m/s to km/h)
     const speed = renderer.getCurrentSpeed();
@@ -154,9 +220,6 @@ async function bootstrap() {
   window.addEventListener('resize', () => {
     engine.resize();
   });
-
-  // Start initial connection
-  connectToRoom();
 }
 
 window.addEventListener('DOMContentLoaded', bootstrap);

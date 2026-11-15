@@ -77,10 +77,13 @@ export class KartSimulation {
     console.log(`[Simulation] Rapier physics world & colliders initialized successfully.`);
   }
 
+  private lastInputTime = Date.now();
+
   applyInput(input: ControllerInput): void {
     if (input.sequence > this.lastAckSequence) {
       this.lastAckSequence = input.sequence;
       this.lastInput = input;
+      this.lastInputTime = Date.now();
     }
   }
 
@@ -92,12 +95,21 @@ export class KartSimulation {
       throttle: 0,
       brake: false,
     };
+    this.lastInputTime = Date.now();
   }
 
   step(dt: number = CONSTANTS.SIMULATION_TIMESTEP_SEC): void {
     if (!this.isInitialized) return;
 
     this.tickCount++;
+
+    // Input timeout watchdog: if no packets received for > 200ms, auto-neutralize
+    if (Date.now() - this.lastInputTime > 200) {
+      this.lastInput.steering = 0;
+      this.lastInput.throttle = 0;
+      this.lastInput.brake = false;
+    }
+
     const { steering, throttle, brake } = this.lastInput;
     const {
       maxSpeed,
@@ -140,10 +152,10 @@ export class KartSimulation {
       }
     }
 
-    // 4. Steering and Angular Rotation
-    if (Math.abs(steering) > 0.01) {
-      // Steering effectiveness scales with speed, but allows low-speed pivoting
-      const speedRatio = Math.min(1.0, Math.abs(speed) / 5.0 + 0.25);
+    // 4. Steering and Angular Rotation (only turns when car has movement)
+    if (Math.abs(steering) > 0.01 && Math.abs(speed) > 0.3) {
+      // Car turns proportional to forward speed, preventing standing spinning
+      const speedRatio = Math.min(1.0, Math.abs(speed) / 6.0);
       const direction = speed >= 0 ? 1.0 : -1.0;
       rotation += steering * turnSpeed * dt * speedRatio * direction;
 
